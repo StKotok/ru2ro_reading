@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Russian → Romanian Reading Trainer</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      max-width: 900px;
+      margin: auto;
+    }
+    textarea, input, select, button {
+      font-size: 1rem;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin: 1rem 0;
+    }
+    input[type="range"] {
+      width: 150px;
+    }
+    .highlight {
+      background-color: #ffff99;
+      cursor: help;
+      border-bottom: 1px dotted #888;
+    }
+  </style>
+</head>
+<body>
+  <h1>Russian → Romanian Reading Trainer</h1>
+  <label for="inputText">Введите текст на русском:</label>
+  <textarea id="inputText" rows="6" placeholder="Пример: Шапка, юг, герой..." style="width: 100%; margin-bottom: 1rem;"></textarea>
+
+  <div class="controls">
+    <label for="degree">Степень замены (%):</label>
+    <input type="range" id="degree" min="1" max="100" value="100" step="1">
+    <span id="degreeValue">100%</span>
+    <button onclick="transformText()">Преобразовать</button>
+    <button onclick="toggleHighlight()">Подсветка</button>
+  </div>
+
+  <label for="outputText">Румынское чтение:</label>
+  <div id="outputText" style="white-space: pre-wrap; border: 1px solid #ccc; padding: 0.75rem; min-height: 6em;"></div>
+
+  <script>
+    const substitutions = [
+      { ru: '([бвгдёжзклмнпрстфхцчшщ])ь([яеёюи])', ro: (_, g1, g2) => g1 + 'i' + g2, regex: true },
+      { ru: '([бвгдёжзклмнпрстфхцчшщ])ь', ro: (_, g1) => g1 + 'i', regex: true },
+      { ru: '([жшчщ])е', ro: (_, g1) => g1 + 'e', regex: true },
+      { ru: 'кс', ro: 'x' },
+      { ru: 'хи', ro: 'hi' },
+      { ru: 'хе', ro: 'he' },
+      { ru: 'дж', ro: 'j' },
+      { ru: 'ге', ro: 'ghe' },
+      { ru: 'ги', ro: 'ghi' },
+      { ru: 'ы([нм])', ro: (_, g1) => 'â' + g1, regex: true },
+      { ru: 'ъ', ro: 'ă' },
+      { ru: 'ч([eiy])', ro: (_, g1) => 'ci' + g1, regex: true },
+      { ru: 'к([eiyăâî])', ro: (_, g1) => 'ch' + g1, regex: true },
+      { ru: 'чк', ro: 'c' },
+      { ru: 'шч', ro: 'șci' },
+      { ru: 'жь', ro: 'ji' },
+      { ru: 'шь', ro: 'și' },
+      { ru: 'щ', ro: 'șt' },
+      { ru: 'тс', ro: 'ț' },
+      { ru: 'йе', ro: 'ie' },
+      { ru: 'йо', ro: 'io' },
+      { ru: 'ч', ro: 'ce' },
+      { ru: 'ю', ro: 'iu' },
+      { ru: 'я', ro: 'ia' },
+      { ru: 'ё', ro: 'io' },
+      { ru: 'ы', ro: 'î' },
+      { ru: 'ж', ro: 'j' },
+      { ru: 'ш', ro: 'ș' },
+      { ru: 'ц', ro: 'ț' },
+      { ru: 'а', ro: 'a' },
+      { ru: 'б', ro: 'b' },
+      { ru: 'в', ro: 'v' },
+      { ru: 'г', ro: 'g' },
+      { ru: 'д', ro: 'd' },
+      { ru: 'з', ro: 'z' },
+      { ru: 'и', ro: 'i' },
+      { ru: 'й', ro: 'i' },
+      { ru: 'к', ro: 'c' },
+      { ru: 'л', ro: 'l' },
+      { ru: 'м', ro: 'm' },
+      { ru: 'н', ro: 'n' },
+      { ru: 'о', ro: 'o' },
+      { ru: 'п', ro: 'p' },
+      { ru: 'р', ro: 'r' },
+      { ru: 'с', ro: 's' },
+      { ru: 'т', ro: 't' },
+      { ru: 'у', ro: 'u' },
+      { ru: 'ф', ro: 'f' },
+      { ru: 'х', ro: 'h' },
+      { ru: 'э', ro: 'e' },
+      { ru: 'ь', ro: '' }
+    ];
+
+    const vowels = 'аеёиоуыэюяAEIOUĂÎÂaeiouăîâ';
+    let showHighlight = true;
+    let originalInput = '';
+
+    document.getElementById('degree').addEventListener('input', function () {
+      document.getElementById('degreeValue').innerText = this.value + '%';
+    });
+
+    function toggleHighlight() {
+      showHighlight = !showHighlight;
+      transformText();
+    }
+
+    function transformText() {
+      originalInput = document.getElementById('inputText').value;
+      const degree = parseInt(document.getElementById('degree').value);
+      const log = [];
+      let output = originalInput;
+
+      try {
+        output = output.replace(/\bе/gi, match => preserveCase('ie', match));
+        output = output.replace(new RegExp(`([${vowels}])е`, 'gi'), (match, p1) => preserveCase(p1 + 'ie', match));
+      } catch (e) {
+        console.warn('Ошибка в базовой замене е:', e);
+      }
+
+      const total = Math.ceil((degree / 100) * substitutions.length);
+      const activeSubs = substitutions.slice(0, total);
+
+      activeSubs.forEach(pair => {
+        try {
+          const flags = 'gi';
+          const regex = pair.regex ? new RegExp(pair.ru, flags) : new RegExp(pair.ru.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+          output = output.replace(regex, (...args) => {
+            const match = args[0];
+            const base = typeof pair.ro === 'function' ? pair.ro(...args) : pair.ro;
+            const replaced = preserveCase(base, match);
+            if (match !== replaced) log.push({ from: match, to: replaced });
+            return replaced;
+          });
+        } catch (e) {
+          console.warn('Ошибка замены для:', pair.ru, e);
+        }
+      });
+
+      const highlightedOutput = showHighlight ? highlightFromLog(output, log) : output;
+      document.getElementById('outputText').innerHTML = highlightedOutput;
+    }
+
+    function highlightFromLog(text, log) {
+      const spans = [];
+      log.forEach(({ from, to }, index) => {
+        const token = `__MARK${index}__`;
+        const re = new RegExp(to.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), '');
+        text = text.replace(re, token);
+        spans.push({ token, from, to });
+      });
+      spans.forEach(({ token, from, to }) => {
+        const span = `<span class="highlight" title="${from} → ${to}">${to}</span>`;
+        text = text.replace(token, span);
+      });
+      return text;
+    }
+
+    function preserveCase(replacement, original) {
+      if (!original) return replacement;
+      if (original === original.toUpperCase()) return replacement.toUpperCase();
+      if (original[0] === original[0].toUpperCase()) return replacement[0].toUpperCase() + replacement.slice(1);
+      return replacement;
+    }
+  </script>
+</body>
+</html>
