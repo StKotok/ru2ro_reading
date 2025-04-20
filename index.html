@@ -41,7 +41,7 @@
     <input type="range" id="degree" min="1" max="100" value="100" step="1">
     <span id="degreeValue">100%</span>
     <button onclick="transformText()">Преобразовать</button>
-    <button onclick="toggleHighlight()">Подсветка</button>
+<!--     <button onclick="toggleHighlight()">Подсветка</button> -->
   </div>
 
   <label for="outputText">Румынское чтение:</label>
@@ -103,7 +103,7 @@
     ];
 
     const vowels = 'аеёиоуыэюяAEIOUĂÎÂaeiouăîâ';
-    let showHighlight = true;
+    let showHighlight = false;
     let originalInput = '';
 
     document.getElementById('degree').addEventListener('input', function () {
